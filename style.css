@@ -1,0 +1,17 @@
+/*
+Theme Name: Salimor
+Theme URI: https://salimor.ir
+Author: Salimor
+Description: قالب اختصاصی فروشگاه سالیمور برای ووکامرس؛ فارسی و راست‌چین، با الهام از کاشی و ارسی‌های ایرانی، رنگ اصلی آبی تیفانی، حالت اپلیکیشنی روی موبایل و قابل نصب (PWA).
+Version: 0.2.0
+Requires at least: 6.6
+Tested up to: 7.1
+Requires PHP: 8.1
+WC requires at least: 9.0
+WC tested up to: 11.2
+License: Proprietary
+Text Domain: salimor
+Tags: rtl-language-support, e-commerce, custom-menu, custom-logo
+*/
+
+/* Styles live in assets/css/main.css (enqueued by functions.php). */

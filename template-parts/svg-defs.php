@@ -1,0 +1,2 @@
+<?php /* Shared SVG gradients. */ ?>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1" spreadMethod="reflect"><stop offset="0" stop-color="#9A6A1E"/><stop offset=".35" stop-color="#F0CE86"/><stop offset=".55" stop-color="#C98A1E"/><stop offset=".8" stop-color="#F6DFA6"/><stop offset="1" stop-color="#9A6A1E"/><animateTransform attributeName="gradientTransform" type="translate" values="-1 0;1 0;-1 0" dur="6s" repeatCount="indefinite"/></linearGradient></defs></svg>
