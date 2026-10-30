@@ -7,7 +7,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SALIMOR_VERSION', '0.2.0' );
+define( 'SALIMOR_VERSION', '1.0.0' );
 define( 'SALIMOR_DIR', get_template_directory() );
 define( 'SALIMOR_URI', get_template_directory_uri() );
 
