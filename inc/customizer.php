@@ -19,12 +19,14 @@ function salimor_defaults() {
 		'phone'          => '۰۲۱-۹۱۰۰۰۰۰۰',
 		'email'          => 'hello@salimor.ir',
 		'hours'          => 'شنبه تا پنجشنبه، ۹ تا ۱۸',
+		'address'        => '',
 		'telegram'       => 'salimor',
 		'instagram'      => 'salimor',
 		'bale'           => 'salimor',
 		'chat_code'      => '',
 		'trust_html'     => '',
 		'free_ship_min'  => 2000000,
+		'free_ship_apply' => 1,
 		'sale_kicker'    => 'حراج پاییزه',
 		'perk1_t'        => 'ارسال یک‌روزه',
 		'perk1_d'        => 'تهران؛ سایر شهرها ۲ تا ۴ روز',
@@ -62,6 +64,7 @@ add_action( 'customize_register', function ( WP_Customize_Manager $c ) {
 			'phone'      => array( 'تلفن پشتیبانی', 'text' ),
 			'email'      => array( 'ایمیل', 'email' ),
 			'hours'      => array( 'ساعت پاسخگویی', 'text' ),
+			'address'    => array( 'نشانی دفتر یا انبار (اختیاری، در صفحه‌ی تماس)', 'text' ),
 			'telegram'   => array( 'آیدی تلگرام (بدون @)', 'text' ),
 			'instagram'  => array( 'آیدی اینستاگرام (بدون @)', 'text' ),
 			'bale'       => array( 'آیدی بله (بدون @)', 'text' ),
@@ -73,7 +76,8 @@ add_action( 'customize_register', function ( WP_Customize_Manager $c ) {
 			'perk4_t' => array( 'مزیت ۴', 'text' ), 'perk4_d' => array( 'توضیح ۴', 'text' ),
 		) ),
 		'salimor_store'   => array( 'فروشگاه', array(
-			'free_ship_min' => array( 'حداقل خرید برای ارسال رایگان (تومان، فقط برای نمایش نوار پیشرفت در سبد)', 'number' ),
+			'free_ship_min' => array( 'حداقل خرید برای ارسال رایگان (تومان؛ ۰ یعنی بدون ارسال رایگان)', 'number' ),
+			'free_ship_apply' => array( 'بالاتر از این مبلغ، همه‌ی روش‌های ارسال رایگان شوند', 'checkbox' ),
 			'pdp_ship'      => array( 'متن «ارسال و بازگشت» در صفحه‌ی محصول', 'textarea' ),
 			'size_guide'    => array( 'لینک راهنمای سایز (کنار گزینه‌ی سایز نمایش داده می‌شود)', 'url' ),
 		) ),
@@ -82,7 +86,7 @@ add_action( 'customize_register', function ( WP_Customize_Manager $c ) {
 	foreach ( $sections as $sid => list( $title, $fields ) ) {
 		$c->add_section( $sid, array( 'title' => $title, 'panel' => 'salimor' ) );
 		foreach ( $fields as $key => list( $label, $type ) ) {
-			$sanitize = 'textarea' === $type ? 'sanitize_textarea_field' : ( 'number' === $type ? 'absint' : ( 'email' === $type ? 'sanitize_email' : ( 'url' === $type ? 'esc_url_raw' : 'sanitize_text_field' ) ) );
+			$sanitize = 'textarea' === $type ? 'sanitize_textarea_field' : ( 'number' === $type ? 'absint' : ( 'email' === $type ? 'sanitize_email' : ( 'url' === $type ? 'esc_url_raw' : ( 'checkbox' === $type ? 'absint' : 'sanitize_text_field' ) ) ) );
 			$c->add_setting( 'salimor_' . $key, array( 'default' => salimor_defaults()[ $key ], 'sanitize_callback' => $sanitize ) );
 			$c->add_control( 'salimor_' . $key, array( 'label' => $label, 'section' => $sid, 'type' => $type ) );
 		}

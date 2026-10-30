@@ -123,6 +123,7 @@
     if (!data || !data.fragments) return;
     if (data.fragments.salimor_drawer !== undefined) $('#sheetInner').innerHTML = data.fragments.salimor_drawer;
     if (data.fragments.salimor_count !== undefined) setCount(+data.fragments.salimor_count);
+    if (data.fragments.salimor_cartpage !== undefined && $('#cartPage')) { if (+data.fragments.salimor_count === 0) location.reload(); else $('#cartPage').innerHTML = data.fragments.salimor_cartpage; }
     document.dispatchEvent(new CustomEvent('salimor:cart', { detail: data }));
   };
   const openSheet = () => {
@@ -156,14 +157,16 @@
     sheet.addEventListener('touchstart', e => { const b = $('.sh-b', sheet); if (b && b.scrollTop > 0 && !e.target.closest('.grab,.sh-h')) return; y0 = e.touches[0].clientY; dy = 0; sheet.style.transition = 'none'; }, { passive: true });
     sheet.addEventListener('touchmove', e => { if (y0 === null) return; dy = Math.max(0, e.touches[0].clientY - y0); sheet.style.transform = `translateY(${dy}px)`; }, { passive: true });
     sheet.addEventListener('touchend', () => { if (y0 === null) return; sheet.style.transition = ''; sheet.style.transform = ''; if (dy > 110) closeSheet(); y0 = null; });
-    sheet.addEventListener('click', e => {
+    const qtyClick = (e, host) => {
       const q = e.target.closest('[data-q]'), r = e.target.closest('[data-rm]'); if (!q && !r) return;
       const key = (q || r).dataset.q || r.dataset.rm;
       const cur = q ? parseInt(String(q.parentElement.querySelector('.num').textContent).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)), 10) : 0;
       const qty = q ? Math.max(0, cur + (+q.dataset.d)) : 0;
-      sheet.setAttribute('aria-busy', 'true');
-      wc('salimor_update_qty', form({ key, qty, nonce: S.nonce })).then(d => { applyFragments(d); if (!qty) toast(S.i18n.removed); }).catch(() => toast(S.i18n.error)).finally(() => sheet.removeAttribute('aria-busy'));
-    });
+      host.setAttribute('aria-busy', 'true');
+      wc('salimor_update_qty', form({ key, qty, nonce: S.nonce })).then(d => { applyFragments(d); if (!qty) toast(S.i18n.removed); }).catch(() => toast(S.i18n.error)).finally(() => host.removeAttribute('aria-busy'));
+    };
+    sheet.addEventListener('click', e => qtyClick(e, sheet));
+    const cp = $('#cartPage'); if (cp) cp.addEventListener('click', e => qtyClick(e, cp));
   }
   /* back/forward cache can show an old count: refresh it */
   addEventListener('pageshow', e => { if (e.persisted && S.wcAjax) wc('get_refreshed_fragments', form({})).then(applyFragments).catch(() => {}); });
@@ -383,6 +386,89 @@
     $('#viewCart') && $('#viewCart').addEventListener('click', () => window.salimorOpenCart && window.salimorOpenCart());
     document.addEventListener('salimor:cart', e => { const f = e.detail && e.detail.fragments; if (f && f.salimor_lines !== undefined) { lines = f.salimor_lines || {}; sync(); } });
   })();
+
+  /* ---------- checkout: saved addresses fill the address fields ---------- */
+  (() => {
+    const box = $('#ckAddr'), fields = $('#ckFields'); if (!box || !fields) return;
+    const jq = window.jQuery, keys = ['first_name', 'last_name', 'phone', 'state', 'city', 'address_1', 'postcode'];
+    const set = (k, v) => { const el = document.getElementById('billing_' + k); if (!el) return; el.value = v || ''; if (jq) jq(el).trigger('change'); else el.dispatchEvent(new Event('change', { bubbles: true })); };
+    const apply = (radio, focus) => {
+      if (radio.value === 'new') {
+        keys.forEach(k => set(k, k === 'state' ? (document.getElementById('billing_state') || {}).value : ''));
+        fields.classList.remove('is-saved'); if (focus) { const f = $('input,select', fields); f && f.focus(); }
+      } else {
+        const a = JSON.parse(radio.dataset.addr || '{}'); keys.forEach(k => set(k, a[k])); fields.classList.add('is-saved');
+      }
+      if (jq) jq(document.body).trigger('update_checkout');
+    };
+    box.addEventListener('change', e => { if (e.target.name === 'salimor_addr') apply(e.target, true); });
+    const cur = $('input[name="salimor_addr"]:checked', box); if (cur && cur.value !== 'new') fields.classList.add('is-saved');
+    /* if WooCommerce rejects a hidden field, show the form so the error is visible */
+    if (jq) jq(document.body).on('checkout_error', () => { if ($('.woocommerce-invalid', fields)) fields.classList.remove('is-saved'); });
+  })();
+
+  /* ---------- login with mobile + SMS code ---------- */
+  (() => {
+    const root = $('#otp'); if (!root) return;
+    const f1 = $('#lf1'), f2 = $('#lf2'), lp = $('#lp'), lc = $('#lc'), rs = $('#lresend');
+    const en = s => String(s).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+    let phone = '', timer, ac = null;
+    const err = (input, msg) => {
+      const fld = input.closest('.fld'); let e = $('.err', fld);
+      if (!e) { e = document.createElement('small'); e.className = 'err'; e.id = input.id + '-e'; fld.appendChild(e); }
+      e.textContent = msg || ''; e.hidden = !msg; input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+      const ids = new Set((input.getAttribute('aria-describedby') || '').split(' ').filter(Boolean)); msg ? ids.add(e.id) : ids.delete(e.id);
+      ids.size ? input.setAttribute('aria-describedby', [...ids].join(' ')) : input.removeAttribute('aria-describedby');
+      if (msg) input.focus();
+    };
+    const busy = (btn, on, label) => { btn.disabled = on; btn.setAttribute('aria-busy', String(on)); if (on) { btn.dataset.t = btn.textContent; btn.innerHTML = '<span class="ld"></span>' + label; } else if (btn.dataset.t) btn.textContent = btn.dataset.t; };
+    const post = (ep, data) => { const fd = new FormData(); Object.entries({ ...data, nonce: root.dataset.nonce }).forEach(([k, v]) => fd.append(k, v)); return wc(ep, fd); };
+    const countdown = s => {
+      clearInterval(timer); let t = s; rs.disabled = true;
+      const tick = () => { rs.textContent = t > 0 ? `ارسال دوباره (${fa(t)} ثانیه)` : 'ارسال دوباره'; rs.disabled = t > 0; t--; if (t < -1) clearInterval(timer); };
+      tick(); timer = setInterval(tick, 1000);
+    };
+    const webOtp = () => {
+      if (!('OTPCredential' in window)) return;
+      ac && ac.abort(); ac = new AbortController();
+      navigator.credentials.get({ otp: { transport: ['sms'] }, signal: ac.signal }).then(o => { if (o && o.code) { lc.value = o.code; f2.requestSubmit(); } }).catch(() => {});
+    };
+    const send = btn => {
+      busy(btn, true, 'در حال ارسال');
+      return post('salimor_otp_send', { phone }).then(d => {
+        if (!d.ok) { if (d.wait) countdown(d.wait); err(f2.hidden ? lp : lc, d.message); return false; }
+        f1.hidden = true; f2.hidden = false;
+        $('#lsent').innerHTML = `کد تأیید به شماره‌ی <b class="num" dir="ltr">${fa(phone)}</b> پیامک شد.`;
+        if (d.test) { const h = $('#lc-h'); if (h) h.innerHTML = `حالت آزمایشی — کد: <b class="num" dir="ltr">${fa(d.test)}</b>`; }
+        lc.value = ''; err(lc, ''); lc.focus(); countdown(d.wait || 60); webOtp(); return true;
+      }).catch(() => { err(f2.hidden ? lp : lc, S.i18n.error); }).finally(() => busy(btn, false));
+    };
+    f1.addEventListener('submit', e => {
+      e.preventDefault(); const v = en(lp.value).replace(/\D/g, '').replace(/^(0098|98)/, '0').replace(/^9/, '09');
+      if (!/^09\d{9}$/.test(v)) return err(lp, 'شماره موبایل ۱۱ رقمی و با ۰۹ شروع می‌شود؛ مثل ۰۹۱۲۱۲۳۴۵۶۷.');
+      err(lp, ''); phone = v; send($('button[type=submit]', f1));
+    });
+    $('#ledit').addEventListener('click', () => { f2.hidden = true; f1.hidden = false; clearInterval(timer); ac && ac.abort(); lp.focus(); });
+    rs.addEventListener('click', () => send(rs));
+    lc.addEventListener('input', () => { const v = en(lc.value).replace(/\D/g, '').slice(0, 5); if (v !== lc.value) lc.value = v; if (v.length === 5) f2.requestSubmit(); });
+    f2.addEventListener('submit', e => {
+      e.preventDefault(); const code = en(lc.value).replace(/\D/g, ''), btn = $('button[type=submit]', f2);
+      if (code.length !== 5) return err(lc, 'کد تأیید ۵ رقم است.');
+      if (btn.disabled) return; busy(btn, true, 'در حال ورود');
+      post('salimor_otp_verify', { phone, code, redirect: root.dataset.redirect || '' }).then(d => {
+        if (!d.ok) { err(lc, d.message); busy(btn, false); return; }
+        toast(d.created ? 'حساب شما ساخته شد' : 'وارد حساب شدید'); location.href = d.redirect;
+      }).catch(() => { err(lc, S.i18n.error); busy(btn, false); });
+    });
+  })();
+
+  /* ---------- account: confirm before deleting an address ---------- */
+  document.addEventListener('click', e => {
+    const d = e.target.closest('[data-adel]');
+    if (d) { const c = document.getElementById('cf-' + d.dataset.adel); c.hidden = false; d.setAttribute('aria-expanded', 'true'); $('button', c).focus(); return; }
+    const n = e.target.closest('[data-adelno]');
+    if (n) { const c = n.closest('.confirm'); c.hidden = true; const b = $(`[data-adel="${c.id.slice(3)}"]`); if (b) { b.setAttribute('aria-expanded', 'false'); b.focus(); } }
+  });
 
   /* ---------- support menu ---------- */
   (() => {

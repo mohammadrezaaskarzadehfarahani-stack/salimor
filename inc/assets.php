@@ -44,10 +44,5 @@ add_action( 'wp_head', function () {
 	echo '<meta name="theme-color" content="#8EDDD6">' . "\n";
 }, 1 );
 
-/* Our own styles cover the storefront; keep WooCommerce's only where we have not restyled yet. */
-add_filter( 'woocommerce_enqueue_styles', function ( $styles ) {
-	if ( is_front_page() || is_home() || is_singular( 'post' ) || ( function_exists( 'is_shop' ) && ( is_shop() || is_product_taxonomy() || is_product() ) ) ) {
-		return array();
-	}
-	return $styles;
-} );
+/* The theme styles every WooCommerce screen itself. */
+add_filter( 'woocommerce_enqueue_styles', '__return_empty_array' );

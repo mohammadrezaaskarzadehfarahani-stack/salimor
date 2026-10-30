@@ -255,13 +255,13 @@ function salimor_cart_count() {
 }
 
 /** Inner markup of the drawer: items (#cb) and totals/actions (#cf). */
-function salimor_cart_drawer_inner() {
+function salimor_cart_drawer_inner( $page = false ) {
 	$cart = WC()->cart;
 	ob_start();
 	if ( ! $cart || $cart->is_empty() ) {
 		?>
-		<div class="sh-b" id="cb"><div class="empty"><?php echo salimor_icon( 'bag' ); // phpcs:ignore ?><p style="color:var(--ink);font-weight:600">سبد خرید خالی است</p><p style="font-size:14px">چند قطعه از کالکشن پاییز را ببینید.</p></div></div>
-		<div class="sh-f" id="cf"><a class="btn b-ink" href="<?php echo esc_url( salimor_shop_url() ); ?>">رفتن به فروشگاه</a></div>
+		<div class="sh-b"<?php echo $page ? '' : ' id="cb"'; ?>><div class="empty"><?php echo salimor_icon( 'bag' ); // phpcs:ignore ?><p style="color:var(--ink);font-weight:600">سبد خرید خالی است</p><p style="font-size:14px">چند قطعه از تازه‌های فروشگاه را ببینید.</p></div></div>
+		<div class="sh-f"<?php echo $page ? '' : ' id="cf"'; ?>><a class="btn b-ink" href="<?php echo esc_url( salimor_shop_url() ); ?>">رفتن به فروشگاه</a></div>
 		<?php
 		return ob_get_clean();
 	}
@@ -269,7 +269,7 @@ function salimor_cart_drawer_inner() {
 	$min  = (int) salimor_opt( 'free_ship_min' );
 	$left = $min ? max( 0, $min - $sum ) : 0;
 	?>
-	<div class="sh-b" id="cb">
+	<div class="sh-b cart-lines"<?php echo $page ? '' : ' id="cb"'; ?>>
 		<?php if ( $min ) : ?>
 			<div class="ship"><?php echo $left ? 'فقط <b class="num" style="color:var(--ink)">' . salimor_num( $left ) . '</b> تومان تا ارسال رایگان' : 'ارسال این سفارش رایگان است'; // phpcs:ignore ?><div class="tr"><i style="width:<?php echo esc_attr( min( 100, round( $sum / $min * 100 ) ) ); ?>%"></i></div></div>
 		<?php endif; ?>
@@ -291,9 +291,13 @@ function salimor_cart_drawer_inner() {
 			</div>
 		<?php endforeach; ?>
 	</div>
-	<div class="sh-f" id="cf">
+	<div class="sh-f"<?php echo $page ? '' : ' id="cf"'; ?>>
+		<?php if ( $page ) : ?><h2 class="sub-t">خلاصه‌ی سبد</h2><?php endif; ?>
 		<div class="sum-row"><span>جمع کالاها</span><span class="num"><?php echo salimor_num( $sum ); // phpcs:ignore ?> تومان</span></div>
 		<div class="sum-row"><span>هزینه ارسال</span><span><?php echo $min && ! $left ? 'رایگان' : 'در مرحله‌ی بعد محاسبه می‌شود'; ?></span></div>
+		<?php if ( $cart->get_coupons() ) : ?>
+			<div class="sum-row disc"><span>تخفیف</span><span class="num">−<?php echo salimor_num( $cart->get_discount_total() + $cart->get_discount_tax() ); // phpcs:ignore ?> تومان</span></div>
+		<?php endif; ?>
 		<a class="btn b-ink" href="<?php echo esc_url( wc_get_checkout_url() ); ?>">ادامه و پرداخت</a>
 		<p class="pay-note">پرداخت امن با همه‌ی کارت‌های عضو شتاب</p>
 	</div>
@@ -306,6 +310,7 @@ add_filter( 'woocommerce_add_to_cart_fragments', function ( $fragments ) {
 	$n                             = salimor_cart_count();
 	$fragments['salimor_drawer']   = salimor_cart_drawer_inner();
 	$fragments['salimor_count']    = $n;
+	$fragments['salimor_cartpage'] = salimor_cart_drawer_inner( true );
 	return $fragments;
 } );
 
@@ -347,3 +352,8 @@ remove_action( 'woocommerce_after_shop_loop', 'woocommerce_pagination', 10 );
 
 require_once __DIR__ . '/shop.php';
 require_once __DIR__ . '/product.php';
+require_once __DIR__ . '/checkout.php';
+require_once __DIR__ . '/otp.php';
+require_once __DIR__ . '/account.php';
+require_once __DIR__ . '/contact.php';
+require_once __DIR__ . '/starter.php';

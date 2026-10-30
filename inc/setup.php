@@ -54,7 +54,16 @@ add_filter( 'wp_speculation_rules_configuration', function ( $config ) {
 
 /* Never prefetch pages that change state. */
 add_filter( 'wp_speculation_rules_href_exclude_paths', function ( $paths ) {
-	return array_merge( $paths, array( '/cart/*', '/checkout/*', '/my-account/*', '/*add-to-cart=*', '/*wc-ajax=*' ) );
+	$extra = array( '/*add-to-cart=*', '/*wc-ajax=*', '/*customer-logout*', '/*remove_item=*', '/*remove_coupon=*', '/*action=logout*' );
+	if ( function_exists( 'wc_get_page_permalink' ) ) {
+		foreach ( array( 'cart', 'checkout', 'myaccount' ) as $page ) {
+			$path = wp_parse_url( wc_get_page_permalink( $page ), PHP_URL_PATH );
+			if ( $path && '/' !== $path ) {
+				$extra[] = untrailingslashit( $path ) . '/*';
+			}
+		}
+	}
+	return array_merge( $paths, $extra );
 } );
 
 /* Body classes used by the stylesheet. */
@@ -87,3 +96,21 @@ add_action( 'wp_head', function () {
 		printf( '<meta name="description" content="%s">' . "\n", esc_attr( wp_trim_words( $d, 30, '…' ) ) );
 	}
 }, 2 );
+
+/* Journal posts: products shown under the article. */
+add_action( 'add_meta_boxes_post', function () {
+	add_meta_box( 'salimor_products', 'محصولات مرتبط', function ( $post ) {
+		wp_nonce_field( 'salimor_products', 'salimor_products_nonce' );
+		printf( '<p><input type="text" name="salimor_products" value="%s" style="width:100%%;direction:ltr" placeholder="12, 34, 56"></p><p class="description">شناسه‌ی محصولات را با ویرگول جدا کنید (شناسه در فهرست محصولات، زیر نام هر محصول دیده می‌شود). اگر خالی بماند، پرفروش‌ها نمایش داده می‌شوند.</p>', esc_attr( get_post_meta( $post->ID, '_salimor_products', true ) ) );
+	}, 'post', 'side' );
+} );
+add_action( 'save_post_post', function ( $id ) {
+	if ( ! isset( $_POST['salimor_products_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['salimor_products_nonce'] ), 'salimor_products' ) || ! current_user_can( 'edit_post', $id ) ) {
+		return;
+	}
+	$ids = array_filter( array_map( 'absint', explode( ',', salimor_en_digits_any( sanitize_text_field( wp_unslash( $_POST['salimor_products'] ?? '' ) ) ) ) ) );
+	update_post_meta( $id, '_salimor_products', implode( ',', $ids ) );
+} );
+function salimor_en_digits_any( $s ) {
+	return function_exists( 'salimor_en_digits' ) ? salimor_en_digits( $s ) : $s;
+}
