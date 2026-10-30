@@ -1,0 +1,76 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "meta": {
+    "title": "Salimor — WooCommerce demo",
+    "description": "قالب فروشگاهی سالیمور با محصولات نمونه",
+    "author": "salimor"
+  },
+  "landingPage": "/",
+  "preferredVersions": {
+    "php": "8.3",
+    "wp": "latest"
+  },
+  "features": {
+    "networking": true,
+    "intl": true
+  },
+  "constants": {
+    "WP_ENVIRONMENT_TYPE": "development"
+  },
+  "steps": [
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "woocommerce"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "wordpress.org/plugins",
+        "slug": "persian-woocommerce"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "setSiteLanguage",
+      "language": "fa_IR"
+    },
+    {
+      "step": "installTheme",
+      "themeData": {
+        "resource": "git:directory",
+        "url": "https://github.com/mohammadrezaaskarzadehfarahani-stack/salimor",
+        "ref": "main",
+        "refType": "branch",
+        "path": "/"
+      },
+      "options": {
+        "activate": true,
+        "targetFolderName": "salimor"
+      },
+      "ifAlreadyInstalled": "overwrite"
+    },
+    {
+      "step": "writeFiles",
+      "writeToPath": "/wordpress/wp-content/salimor-demo",
+      "filesTree": {
+        "resource": "git:directory",
+        "url": "https://github.com/mohammadrezaaskarzadehfarahani-stack/salimor",
+        "ref": "playground",
+        "refType": "branch",
+        "path": "playground"
+      }
+    },
+    {
+      "step": "runPHP",
+      "code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/salimor-demo/seed.php';"
+    }
+  ]
+}
